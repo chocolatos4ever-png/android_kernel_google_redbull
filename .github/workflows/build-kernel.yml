@@ -1,15 +1,25 @@
-
 name: Pixel 5 Kernel Build Preparation
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - lineage-24.0
+    paths:
+      - ".github/workflows/build-kernel.yml"
 
 permissions:
   contents: read
 
+concurrency:
+  group: redbull-kernel-check
+  cancel-in-progress: true
+
 jobs:
   prepare:
+    name: Verify kernel source
     runs-on: ubuntu-22.04
+    timeout-minutes: 10
 
     steps:
       - name: Checkout kernel source
@@ -18,41 +28,50 @@ jobs:
           ref: lineage-24.0
           fetch-depth: 1
 
+      - name: Print checked-out revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "===== Source revision ====="
+          git rev-parse HEAD
+          git log -1 --format='%h %s'
+          echo "===== Current branch ====="
+          git branch --show-current
+
       - name: Verify kernel source and configuration
         shell: bash
         run: |
-        echo "===== Checked-out source commit ====="
-git rev-parse HEAD
-git log -1 --format="%h %s"
           set -euo pipefail
 
           echo "===== Kernel version ====="
-          head -n 5 Makefile
+          grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL) =' Makefile
 
-          echo
           echo "===== Architecture configuration ====="
-          test -f arch/arm64/configs/redbull_defconfig
-          echo "redbull_defconfig: found"
-
-          echo
-          echo "===== Build configuration ====="
-          test -f build.config.redbull
-          test -f build.config.redbull.common.clang
-          echo "Redbull build configs: found"
-
-          echo
-          echo "===== Build system availability ====="
-          if [ -f build/build.sh ]; then
-            echo "build/build.sh: found"
+          if find arch -type f -name 'redbull_defconfig' -print -quit | grep -q .; then
+            find arch -type f -name 'redbull_defconfig' -print
           else
-            echo "build/build.sh: missing from kernel checkout"
-            echo "A matching Android kernel build workspace is still needed."
+            echo "::error::redbull_defconfig not found"
+            exit 1
           fi
 
-          echo
-          echo "===== Source revision ====="
-          git log -1 --format='%H%n%s'
+          echo "===== Redbull build configuration files ====="
+          find . -maxdepth 3 -type f \
+            \( -name 'build.config.redbull*' -o -name 'build_redbull.sh' \) \
+            -print
 
-          echo
-          echo "Preparation checks completed."
-          
+          echo "===== Build-system check ====="
+          if [ -f build/build.sh ]; then
+            echo "build/build.sh exists in this checkout."
+          else
+            echo "::notice::build/build.sh is not in this kernel-only repository."
+            echo "A matching Android kernel build workspace is required."
+          fi
+
+          echo "===== Toolchain check ====="
+          if [ -d prebuilts-master/clang/host/linux-x86 ]; then
+            echo "Android Clang prebuilt directory exists."
+          else
+            echo "::notice::Android Clang prebuilts are not included in this checkout."
+          fi
+
+          echo "===== Diagnostic checks completed ====="
