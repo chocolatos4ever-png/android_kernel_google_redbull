@@ -29,8 +29,10 @@ jobs:
           kernel-url: ./kernel_source
           config: redbull_defconfig
           arch: arm64
-          # Bypass AOSP auto-download endpoints by supplying a direct prebuilt Clang URL:
-          other-clang-url: https://github.com/LineageOS/android_prebuilts_clang_host_linux-x86_clang-r416183b.git
+          # Reverting to stable built-in parameters with a compatible clang version target
+          aosp-clang: true
+          aosp-clang-version: r353983c
+          aosp-gcc: true
           ksu: true
           ksu-other: true
           ksu-url: https://github.com/KernelSU-Next/KernelSU-Next
