@@ -1,5 +1,5 @@
 
-name: Inspect Redbull kernel tree
+name: Inspect Pixel 5 Kernel
 
 on:
   workflow_dispatch:
@@ -9,97 +9,144 @@ permissions:
 
 jobs:
   inspect:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: lineage-24.0
+    name: Inspect redbull kernel configuration
+    runs-on: ubuntu-22.04
 
-      - name: Inspect build files
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Show repository information
         shell: bash
         run: |
-          set -euxo pipefail
+          set -eu
 
+          echo "===== Repository ====="
+          pwd
+
+          echo "===== Current commit ====="
           git log -1 --oneline
+
+          echo "===== Top-level files ====="
+          ls -la
+
+      - name: Inspect kernel build scripts
+        shell: bash
+        run: |
+          set -u
 
           for f in \
             build_redbull.sh \
             build.config.redbull \
             build.config.redbull.no-cfi \
-            build.config.redbull.common.clang \
-            build/build.sh
+            build.config.redbull.common.clang
           do
+            echo
+            echo "===== $f ====="
+
             if [ -f "$f" ]; then
-              echo "FOUND: $f"
+              cat "$f"
             else
               echo "MISSING: $f"
             fi
           done
 
-          echo "Kernel version:"
-          grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL)[[:space:]]*=' Makefile
-
-          echo "Root directory entries:"
-          ls -la
-
-          echo "Relevant config files:"
-          find . -maxdepth 4 -type f \
-            \( -name '*redbull*' -o -name 'build.sh' \) \
-            | sort | head -200
-
-      - name: Inspect kernel build configuration
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          echo "=== Redbull build wrapper ==="
-          cat build_redbull.sh
-
-          echo "=== Main Redbull config ==="
-          cat build.config.redbull
-
-          echo "=== No-CFI config ==="
-          cat build.config.redbull.no-cfi
-
-          echo "=== Common Clang config ==="
-          cat build.config.redbull.common.clang
-
-          echo "=== Available Clang references ==="
-          grep -nE 'CLANG|TOOLCHAIN|BUILD_CONFIG|MAKE_ARGS|DEFCONFIG|KERNEL_DIR' \
-            build.config.redbull* AndroidKernel.mk | head -200
-
-          echo "=== Existing defconfig ==="
-          grep -nE 'CONFIG_(ARM64|LOCALVERSION|LTO|CFI|KSU|SUSFS)' \
-            arch/arm64/configs/redbull_defconfig || true
-
-            
-      - name: Inspect build configuration
+      - name: Inspect available defconfigs
         shell: bash
         run: |
           set -u
 
-          echo "===== build_redbull.sh ====="
-          cat build_redbull.sh
+          echo "===== Redbull defconfigs ====="
 
-          echo "===== build.config.redbull ====="
-          cat build.config.redbull
+          find arch/arm64/configs \
+            -maxdepth 1 \
+            -type f \
+            -name 'redbull*' \
+            -print 2>/dev/null || true
 
-          echo "===== build.config.redbull.no-cfi ====="
-          cat build.config.redbull.no-cfi
+          for f in \
+            arch/arm64/configs/redbull_defconfig \
+            arch/arm64/configs/redbull-gki_defconfig
+          do
+            echo
+            echo "===== $f ====="
 
-          echo "===== build.config.redbull.common.clang ====="
-          cat build.config.redbull.common.clang
+            if [ -f "$f" ]; then
+              grep -nE \
+                'CONFIG_(ARM64|LOCALVERSION|LTO|CFI|KSU|SUSFS|BUILD_ARM64_UNCOMPRESSED_KERNEL)' \
+                "$f" || true
+            else
+              echo "MISSING: $f"
+            fi
+          done
 
-          echo "===== AndroidKernel.mk build references ====="
-          grep -nE 'CLANG|CROSS_COMPILE|DEFCONFIG|BUILD_CONFIG|build\.sh|KERNEL_DIR' \
-            AndroidKernel.mk | head -150 || true
+      - name: Inspect compiler and build references
+        shell: bash
+        run: |
+          set -u
 
-          echo "===== Redbull defconfig options ====="
-          grep -nE 'CONFIG_(ARM64|LOCALVERSION|LTO|CFI|KSU|SUSFS)' \
-            arch/arm64/configs/redbull_defconfig || true
+          echo "===== AndroidKernel.mk ====="
 
-          echo "===== Available toolchain directories ====="
-          find . -maxdepth 3 -type d \
-            \( -iname '*clang*' -o -iname '*toolchain*' \) | head -80
-            
-            
+          if [ -f AndroidKernel.mk ]; then
+            grep -nE \
+              'CLANG|CROSS_COMPILE|DEFCONFIG|BUILD_CONFIG|build\.sh|KERNEL_DIR|LTO|CFI|TARGET_KERNEL_ARCH' \
+              AndroidKernel.mk || true
+          else
+            echo "AndroidKernel.mk is missing"
+          fi
+
+          echo
+          echo "===== Makefile version ====="
+
+          if [ -f Makefile ]; then
+            head -5 Makefile
+          else
+            echo "Kernel Makefile is missing"
+          fi
+
+          echo
+          echo "===== Available build tools and directories ====="
+
+          for p in \
+            build/build.sh \
+            build.config \
+            prebuilts \
+            clang \
+            toolchain \
+            private/msm-google
+          do
+            if [ -e "$p" ]; then
+              echo "FOUND: $p"
+            else
+              echo "MISSING: $p"
+            fi
+          done
+
+      - name: Inspect KernelSU and SUSFS status
+        shell: bash
+        run: |
+          set -u
+
+          echo "===== Existing KernelSU references ====="
+          git grep -n -i -E 'kernelsu|ksu' -- \
+            'arch/arm64/configs/*' \
+            'drivers/*' \
+            'fs/*' \
+            'include/*' 2>/dev/null | head -100 || true
+
+          echo
+          echo "===== Existing SUSFS references ====="
+          git grep -n -i 'susfs' -- \
+            'arch/arm64/configs/*' \
+            'drivers/*' \
+            'fs/*' \
+            'include/*' 2>/dev/null | head -100 || true
+
+      - name: Finish inspection
+        shell: bash
+        run: |
+          echo "Inspection complete."
+          echo "No kernel compilation or source modifications were performed."
+          
