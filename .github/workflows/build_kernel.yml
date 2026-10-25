@@ -10,9 +10,11 @@ jobs:
       contents: write
 
     steps:
-            - name: Checkout Kernel Source
+      - name: Checkout Your Forked Kernel Source
         uses: actions/checkout@v4
         with:
+          repository: chocolatos4ever-png/android_kernel_google_redbull  # ⚠️ Replace with your actual GitHub username!
+          ref: lineage-24.0
           path: kernel_source
 
       - name: Setup Environment & Dependencies
