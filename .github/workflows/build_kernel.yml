@@ -42,6 +42,7 @@ jobs:
           config: redbull_defconfig
           arch: arm64
           aosp-clang: true
+          aosp-gcc: true
           anykernel3: true
           anykernel3-url: https://github.com/KernelSU/AnyKernel3
           release: true
