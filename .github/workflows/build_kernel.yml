@@ -29,10 +29,9 @@ jobs:
           kernel-url: ./kernel_source
           config: redbull_defconfig
           arch: arm64
-          # Reverting to stable built-in parameters with a compatible clang version target
-          aosp-clang: true
-          aosp-clang-version: r353983c
-          aosp-gcc: true
+          # Disable broken aosp auto-downloader and point directly to a stable prebuilt Clang package
+          aosp-clang: false
+          other-clang-url: https://github.com/UDP-Team/android_prebuilts_clang_host_linux-x86_clang-r383902/archive/refs/heads/main.zip
           ksu: true
           ksu-other: true
           ksu-url: https://github.com/KernelSU-Next/KernelSU-Next
