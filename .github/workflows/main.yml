@@ -71,4 +71,35 @@ jobs:
           echo "=== Existing defconfig ==="
           grep -nE 'CONFIG_(ARM64|LOCALVERSION|LTO|CFI|KSU|SUSFS)' \
             arch/arm64/configs/redbull_defconfig || true
+
+            
+      - name: Inspect build configuration
+        shell: bash
+        run: |
+          set -u
+
+          echo "===== build_redbull.sh ====="
+          cat build_redbull.sh
+
+          echo "===== build.config.redbull ====="
+          cat build.config.redbull
+
+          echo "===== build.config.redbull.no-cfi ====="
+          cat build.config.redbull.no-cfi
+
+          echo "===== build.config.redbull.common.clang ====="
+          cat build.config.redbull.common.clang
+
+          echo "===== AndroidKernel.mk build references ====="
+          grep -nE 'CLANG|CROSS_COMPILE|DEFCONFIG|BUILD_CONFIG|build\.sh|KERNEL_DIR' \
+            AndroidKernel.mk | head -150 || true
+
+          echo "===== Redbull defconfig options ====="
+          grep -nE 'CONFIG_(ARM64|LOCALVERSION|LTO|CFI|KSU|SUSFS)' \
+            arch/arm64/configs/redbull_defconfig || true
+
+          echo "===== Available toolchain directories ====="
+          find . -maxdepth 3 -type d \
+            \( -iname '*clang*' -o -iname '*toolchain*' \) | head -80
+            
             
