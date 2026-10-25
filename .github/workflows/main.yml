@@ -9,144 +9,84 @@ permissions:
 
 jobs:
   inspect:
-    name: Inspect redbull kernel configuration
     runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout kernel source
         uses: actions/checkout@v4
         with:
+          ref: lineage-24.0
           fetch-depth: 1
 
-      - name: Show repository information
+      - name: Inspect repository and kernel version
         shell: bash
         run: |
           set -eu
 
           echo "===== Repository ====="
-          pwd
-
-          echo "===== Current commit ====="
           git log -1 --oneline
+          echo
+          echo "===== Kernel version ====="
+          head -n 5 Makefile
 
-          echo "===== Top-level files ====="
-          ls -la
-
-      - name: Inspect kernel build scripts
-        shell: bash
-        run: |
-          set -u
-
-          for f in \
-            build_redbull.sh \
-            build.config.redbull \
-            build.config.redbull.no-cfi \
-            build.config.redbull.common.clang
-          do
-            echo
-            echo "===== $f ====="
-
-            if [ -f "$f" ]; then
-              cat "$f"
-            else
-              echo "MISSING: $f"
-            fi
-          done
-
-      - name: Inspect available defconfigs
-        shell: bash
-        run: |
-          set -u
-
-          echo "===== Redbull defconfigs ====="
-
-          find arch/arm64/configs \
-            -maxdepth 1 \
-            -type f \
-            -name 'redbull*' \
-            -print 2>/dev/null || true
-
-          for f in \
+          echo
+          echo "===== Required build files ====="
+          for path in \
+            build/build.sh \
+            build.config \
+            private/msm-google \
             arch/arm64/configs/redbull_defconfig \
             arch/arm64/configs/redbull-gki_defconfig
           do
-            echo
-            echo "===== $f ====="
-
-            if [ -f "$f" ]; then
-              grep -nE \
-                'CONFIG_(ARM64|LOCALVERSION|LTO|CFI|KSU|SUSFS|BUILD_ARM64_UNCOMPRESSED_KERNEL)' \
-                "$f" || true
+            if [ -e "$path" ]; then
+              echo "FOUND: $path"
             else
-              echo "MISSING: $f"
+              echo "MISSING: $path"
             fi
           done
 
-      - name: Inspect compiler and build references
+      - name: Search KernelSU and SUSFS precisely
         shell: bash
         run: |
-          set -u
+          set -eu
 
-          echo "===== AndroidKernel.mk ====="
-
-          if [ -f AndroidKernel.mk ]; then
-            grep -nE \
-              'CLANG|CROSS_COMPILE|DEFCONFIG|BUILD_CONFIG|build\.sh|KERNEL_DIR|LTO|CFI|TARGET_KERNEL_ARCH' \
-              AndroidKernel.mk || true
-          else
-            echo "AndroidKernel.mk is missing"
-          fi
+          echo "===== KernelSU paths ====="
+          find . -iname '*kernelsu*' -o -iname '*ksu*' \
+            | head -n 100 || true
 
           echo
-          echo "===== Makefile version ====="
-
-          if [ -f Makefile ]; then
-            head -5 Makefile
-          else
-            echo "Kernel Makefile is missing"
-          fi
+          echo "===== SUSFS paths ====="
+          find . -iname '*susfs*' \
+            | head -n 100 || true
 
           echo
-          echo "===== Available build tools and directories ====="
+          echo "===== KernelSU configuration references ====="
+          git grep -n -E \
+            'CONFIG_KSU|CONFIG_KSU_SUSFS|kernelsu|KernelSU' \
+            -- ':!Documentation' || true
 
-          for p in \
-            build/build.sh \
-            build.config \
-            prebuilts \
-            clang \
-            toolchain \
-            private/msm-google
-          do
-            if [ -e "$p" ]; then
-              echo "FOUND: $p"
-            else
-              echo "MISSING: $p"
-            fi
-          done
+          echo
+          echo "===== SUSFS configuration references ====="
+          git grep -n -i 'susfs' \
+            -- ':!Documentation' || true
 
-      - name: Inspect KernelSU and SUSFS status
+      - name: Inspect build configuration
         shell: bash
         run: |
-          set -u
+          set -eu
 
-          echo "===== Existing KernelSU references ====="
-          git grep -n -i -E 'kernelsu|ksu' -- \
-            'arch/arm64/configs/*' \
-            'drivers/*' \
-            'fs/*' \
-            'include/*' 2>/dev/null | head -100 || true
+          echo "===== Redbull build wrapper ====="
+          cat build_redbull.sh
 
           echo
-          echo "===== Existing SUSFS references ====="
-          git grep -n -i 'susfs' -- \
-            'arch/arm64/configs/*' \
-            'drivers/*' \
-            'fs/*' \
-            'include/*' 2>/dev/null | head -100 || true
+          echo "===== AndroidKernel.mk key settings ====="
+          grep -n -E \
+            'TARGET_KERNEL_ARCH|KERNEL_DEFCONFIG|KERNEL_LLVM_SUPPORT|CLANG|CROSS_COMPILE' \
+            AndroidKernel.mk || true
 
-      - name: Finish inspection
-        shell: bash
-        run: |
-          echo "Inspection complete."
-          echo "No kernel compilation or source modifications were performed."
+          echo
+          echo "===== Compiler tools on runner ====="
+          command -v clang || true
+          command -v ld.lld || true
+          clang --version 2>/dev/null | head -n 2 || true
           
