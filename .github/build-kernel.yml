@@ -1,0 +1,55 @@
+
+name: Pixel 5 Kernel Build Preparation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          ref: lineage-24.0
+          fetch-depth: 1
+
+      - name: Verify kernel source and configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "===== Kernel version ====="
+          head -n 5 Makefile
+
+          echo
+          echo "===== Architecture configuration ====="
+          test -f arch/arm64/configs/redbull_defconfig
+          echo "redbull_defconfig: found"
+
+          echo
+          echo "===== Build configuration ====="
+          test -f build.config.redbull
+          test -f build.config.redbull.common.clang
+          echo "Redbull build configs: found"
+
+          echo
+          echo "===== Build system availability ====="
+          if [ -f build/build.sh ]; then
+            echo "build/build.sh: found"
+          else
+            echo "build/build.sh: missing from kernel checkout"
+            echo "A matching Android kernel build workspace is still needed."
+          fi
+
+          echo
+          echo "===== Source revision ====="
+          git log -1 --format='%H%n%s'
+
+          echo
+          echo "Preparation checks completed."
+          
