@@ -15,6 +15,11 @@ jobs:
         with:
           path: kernel_source
 
+      - name: Install Build Dependencies & Clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libelf-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool squashfs-tools xsltproc yasm zlib1g-dev libgmp-dev libmpc-dev clang llvm lld
+
       - name: Integrate SusFS (Kernel 4.19)
         run: |
           cd kernel_source
@@ -29,9 +34,8 @@ jobs:
           kernel-url: ./kernel_source
           config: redbull_defconfig
           arch: arm64
-          # Disable broken aosp auto-downloader and point directly to a stable prebuilt Clang package
+          # Use host system compiler to avoid any download 400/404 errors
           aosp-clang: false
-          other-clang-url: https://github.com/UDP-Team/android_prebuilts_clang_host_linux-x86_clang-r383902/archive/refs/heads/main.zip
           ksu: true
           ksu-other: true
           ksu-url: https://github.com/KernelSU-Next/KernelSU-Next
