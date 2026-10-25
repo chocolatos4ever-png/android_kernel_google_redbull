@@ -27,12 +27,11 @@ jobs:
           cd kernel_source
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
 
-      - name: Integrate SusFS (Kernel 4.19)
+      -       - name: Integrate SusFS (Kernel 4.19)
         run: |
           cd kernel_source
-          git clone --depth=1 https://github.com/simonpunk/susfs4ksu.git -b kernel-4.19 susfs_tmp
+          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-4.19 susfs_tmp
           cp -r susfs_tmp/kernel_patches/* ./
-          # Using a wildcard match prevents filename mismatch errors
           patch -p1 < 50_add_susfs_in_kernel*.patch || true
           rm -rf susfs_tmp
 
