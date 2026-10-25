@@ -21,6 +21,9 @@ jobs:
       - name: Verify kernel source and configuration
         shell: bash
         run: |
+        echo "===== Checked-out source commit ====="
+git rev-parse HEAD
+git log -1 --format="%h %s"
           set -euo pipefail
 
           echo "===== Kernel version ====="
