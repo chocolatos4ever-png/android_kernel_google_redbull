@@ -18,6 +18,33 @@ jobs:
           ref: lineage-24.0
           fetch-depth: 1
 
+      - name: Compare build files with LineageOS
+        shell: bash
+        run: |
+          set -eu
+
+          echo "===== Fork branch and commit ====="
+          git remote -v
+          git log -1 --format='%H%n%s'
+
+          echo
+          echo "===== Root build files ====="
+          ls -la build.config* build_redbull.sh 2>/dev/null || true
+
+          echo
+          echo "===== Git submodules ====="
+          cat .gitmodules 2>/dev/null || echo "No .gitmodules file"
+
+          echo
+          echo "===== Expected build-system directories ====="
+          for path in build private/msm-google; do
+            if [ -d "$path" ]; then
+              echo "FOUND: $path"
+            else
+              echo "MISSING: $path"
+            fi
+          done
+          
       - name: Inspect repository and kernel version
         shell: bash
         run: |
