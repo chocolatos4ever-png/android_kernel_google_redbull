@@ -18,6 +18,39 @@ jobs:
           ref: lineage-24.0
           fetch-depth: 1
 
+      - name: Inspect root build configuration
+        shell: bash
+        run: |
+          set -eu
+
+          for file in \
+            build.config.redbull \
+            build.config.redbull.no-cfi \
+            build.config.redbull.common \
+            build.config.redbull.common.clang \
+            build.config.common \
+            build.config.redbull.gcc \
+            build.config.sm8250.common
+          do
+            echo
+            echo "===== $file ====="
+            if [ -f "$file" ]; then
+              cat "$file"
+            else
+              echo "MISSING"
+            fi
+          done
+
+          echo
+          echo "===== Build-system references ====="
+          git grep -n -E \
+            'ROOT_DIR|KERNEL_DIR|BUILD_CONFIG|build/build.sh|CLANG_PREBUILT_BIN|CLANG_VERSION|CROSS_COMPILE' \
+            -- '*.sh' '*.config*' 'Makefile' || true
+
+          echo
+          echo "===== Kernel Makefile targets ====="
+          grep -n -E '^(Image|Image\.gz|modules|defconfig|%config):' Makefile || true
+          
       - name: Compare build files with LineageOS
         shell: bash
         run: |
