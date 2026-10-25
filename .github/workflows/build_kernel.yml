@@ -10,22 +10,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout Your Forked Kernel Source
+      - name: Checkout Kernel Source
         uses: actions/checkout@v4
         with:
-          repository: chocolatos4ever-png/android_kernel_google_redbull  # ⚠️ Replace with your actual GitHub username!
-          ref: lineage-24.0
           path: kernel_source
-
-      - name: Setup Environment & Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libelf-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool squashfs-tools xsltproc yasm zlib1g-dev libgmp-dev libmpc-dev
-
-      - name: Integrate KernelSU-Next
-        run: |
-          cd kernel_source
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
 
       - name: Integrate SusFS (Kernel 4.19)
         run: |
@@ -42,7 +30,11 @@ jobs:
           config: redbull_defconfig
           arch: arm64
           aosp-clang: true
+          aosp-clang-version: r416183b
           aosp-gcc: true
+          ksu: true
+          ksu-other: true
+          ksu-url: https://github.com/KernelSU-Next/KernelSU-Next
           anykernel3: true
           anykernel3-url: https://github.com/KernelSU/AnyKernel3
           release: true
