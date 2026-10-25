@@ -1,4 +1,52 @@
 
+name: Inspect Redbull kernel tree
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lineage-24.0
+
+      - name: Inspect build files
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          git log -1 --oneline
+
+          for f in \
+            build_redbull.sh \
+            build.config.redbull \
+            build.config.redbull.no-cfi \
+            build.config.redbull.common.clang \
+            build/build.sh
+          do
+            if [ -f "$f" ]; then
+              echo "FOUND: $f"
+            else
+              echo "MISSING: $f"
+            fi
+          done
+
+          echo "Kernel version:"
+          grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL)[[:space:]]*=' Makefile
+
+          echo "Root directory entries:"
+          ls -la
+
+          echo "Relevant config files:"
+          find . -maxdepth 4 -type f \
+            \( -name '*redbull*' -o -name 'build.sh' \) \
+            | sort | head -200
+
       - name: Inspect kernel build configuration
         shell: bash
         run: |
@@ -23,3 +71,4 @@
           echo "=== Existing defconfig ==="
           grep -nE 'CONFIG_(ARM64|LOCALVERSION|LTO|CFI|KSU|SUSFS)' \
             arch/arm64/configs/redbull_defconfig || true
+            
