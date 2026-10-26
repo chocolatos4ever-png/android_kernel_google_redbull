@@ -1,0 +1,131 @@
+name: Build LineageOS 24.0 Kernel with KSU-Next & SUSFS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for GitHub Releases
+
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libfl-dev curl wget cpio gettext zip
+
+      - name: Download Proton Clang Toolchain
+        run: |
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
+
+      - name: Integrate KernelSU-Next
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/main/kernel/setup.sh" | bash -
+
+      - name: Integrate SUSFS
+        run: |
+          # Clone SUSFS repository
+          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs_src
+          
+          # Copy SUSFS core files into your kernel tree
+          cp -rp susfs_src/kernel_patches/fs/* fs/
+          cp -rp susfs_src/kernel_patches/include/linux/* include/linux/
+          
+          # Apply kernel-side SUSFS patches for 4.19
+          patch -p1 < susfs_src/kernel_patches/50_add_susfs_in_kernel-4.19.patch
+          patch -p1 < susfs_src/kernel_patches/fs/susfs.patch || true
+          
+          # Apply KernelSU-Next side SUSFS patches
+          cd KernelSU-Next
+          patch -p1 < ../susfs_src/kernel_patches/SusFS_for_KSU.patch
+          cd ..
+
+      - name: Generate Config & Enable Flags
+        env:
+          ARCH: arm64
+        run: |
+          # Generate base config using Redfin defconfig
+          make O=out ARCH=arm64 CC=clang \
+               LLVM=1 LLVM_IAS=1 \
+               vendor/redfin_defconfig
+          
+          # Inject KSU and SUSFS configuration flags
+          scripts/config --file out/.config \
+            -e CONFIG_KPROBES \
+            -e CONFIG_HAVE_KPROBES \
+            -e CONFIG_KPROBE_EVENTS \
+            -e CONFIG_KSU \
+            -e CONFIG_KSU_SUSFS \
+            -e CONFIG_KSU_SUSFS_SUS_PATH
+            
+          make O=out ARCH=arm64 CC=clang \
+               LLVM=1 LLVM_IAS=1 \
+               olddefconfig
+
+      - name: Compile Redfin Kernel
+        env:
+          PATH: ${{ github.workspace }}/toolchain/bin:${{ env.PATH }}
+        run: |
+          make -j$(nproc --all) O=out \
+                      ARCH=arm64 \
+                      CC=clang \
+                      LLVM=1 \
+                      LLVM_IAS=1 \
+                      CROSS_COMPILE=aarch64-linux-gnu- \
+                      CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+                      Image.lz4 dtbo.img
+
+      - name: Package with AnyKernel3
+        run: |
+          # Clone AnyKernel3 and clean up git tracking
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+          rm -rf AnyKernel3/.git
+          
+          # Copy compiled Image and dtbo to AnyKernel3 root
+          cp out/arch/arm64/boot/Image.lz4 AnyKernel3/
+          cp out/arch/arm64/boot/dtbo.img AnyKernel3/
+          
+          cd AnyKernel3
+          
+          # Configure anykernel.sh for Pixel 5 (Redfin)
+          sed -i 's/kernel.string=.*/kernel.string=LineageOS 24.0 KernelSU-Next + SUSFS/g' anykernel.sh
+          sed -i 's/device.name1=.*/device.name1=redfin/g' anykernel.sh
+          sed -i 's/device.name2=.*/device.name2=bramble/g' anykernel.sh
+          sed -i 's/device.name3=.*/device.name3=Pixel 5/g' anykernel.sh
+          
+          # Configure block path and A/B slot support
+          sed -i 's/block=.*/block=\/dev\/block\/bootdevice\/by-name\/boot;/g' anykernel.sh
+          sed -i 's/is_slot_device=.*/is_slot_device=1;/g' anykernel.sh
+          
+          # Inject DTBO flashing instruction
+          sed -i '/write_boot;/i flash_dtbo;' anykernel.sh
+          
+          # Create the flashable zip archive
+          zip -r9 ../Pixel5-KernelSU-Next-SUSFS.zip *
+          cd ..
+
+      - name: Generate Release Tag
+        id: time
+        run: echo "date=$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "Kernel-${{ env.date }}"
+          name: "Pixel 5 (Redfin) KernelSU-Next + SUSFS - ${{ env.date }}"
+          files: Pixel5-KernelSU-Next-SUSFS.zip
+          body: |
+            Automated kernel build for Google Pixel 5 (Redfin).
+            
+            **Includes:**
+            * LineageOS 24.0 base (Linux 4.19)
+            * KernelSU-Next
+            * SUSFS for KernelSU
+            
+            Flashable via AnyKernel3 in custom recovery (TWRP/Lineage Recovery) or Kernel Flasher apps.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
