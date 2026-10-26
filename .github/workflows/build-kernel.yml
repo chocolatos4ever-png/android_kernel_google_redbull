@@ -24,7 +24,7 @@ jobs:
 
       - name: Integrate KernelSU-Next
         run: |
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/main/kernel/setup.sh" | bash -
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
 
       - name: Integrate SUSFS
         run: |
