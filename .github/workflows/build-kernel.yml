@@ -28,8 +28,8 @@ jobs:
 
       - name: Integrate SUSFS
         run: |
-          # Clone SUSFS repository
-          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs_src
+          # Clone SUSFS repository (Try GitLab first, fallback to GitHub mirror if rate-limited)
+          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs_src || git clone --depth=1 https://github.com/dev-sm8350/susfs4ksu.git susfs_src
           
           # Copy SUSFS core files into your kernel tree
           cp -rp susfs_src/kernel_patches/fs/* fs/
@@ -54,6 +54,7 @@ jobs:
           cd KernelSU-Next
           patch -p1 < ../susfs_src/kernel_patches/SusFS_for_KSU.patch
           cd ..
+
 
       - name: Generate Config & Enable Flags
         env:
