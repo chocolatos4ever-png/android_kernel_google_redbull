@@ -35,26 +35,25 @@ jobs:
           cp -rp susfs_src/kernel_patches/fs/* fs/
           cp -rp susfs_src/kernel_patches/include/linux/* include/linux/
           
-          # Apply kernel-side SUSFS patches (Allowing failure so we can inject manually)
+          # Apply kernel-side SUSFS patches
           patch -p1 < susfs_src/kernel_patches/50_add_susfs_in_kernel-4.19.patch || true
           patch -p1 < susfs_src/kernel_patches/fs/susfs.patch || true
           
           # --- MANUAL FIXES FOR REJECTED HUNKS ---
-          
-          # Fix fs/proc/task_mmu.c include
           awk '/#include "internal.h"/{print; print "#ifdef CONFIG_KSU_SUSFS\n#include <linux/susfs.h>\n#endif"; next}1' fs/proc/task_mmu.c > temp && mv temp fs/proc/task_mmu.c
-          
-          # Fix fs/open.c include
           awk '/#include <linux\/fs.h>/{print; print "#ifdef CONFIG_KSU_SUSFS\n#include <linux/susfs.h>\n#endif"; next}1' fs/open.c > temp && mv temp fs/open.c
-          
-          # Fix fs/open.c do_faccessat hook
           awk '/unsigned int lookup_flags = LOOKUP_FOLLOW;/{print; print "\n#ifdef CONFIG_KSU_SUSFS_SUS_PATH\n\tstruct filename* fname;\n\tint status;\n\tint error;\n#endif\n\n#ifdef CONFIG_KSU_SUSFS_SUS_PATH\n\tfname = getname_safe(filename);\n\tstatus = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_ALL_ENOENT);\n\tputname_safe(fname);\n\n\tif (status) {\n\t\treturn error;\n\t}\n#endif\n"; next}1' fs/open.c > temp && mv temp fs/open.c
           
-          # Apply KernelSU-Next side SUSFS patches
+          # Dynamically locate and apply the KernelSU-Next side SUSFS patch
           cd KernelSU-Next
-          patch -p1 < ../susfs_src/kernel_patches/SusFS_for_KSU.patch
+          KSU_PATCH=$(find ../susfs_src/kernel_patches -iname "*ksu*.patch" | head -n 1)
+          if [ -n "$KSU_PATCH" ]; then
+            echo "Applying patch: $KSU_PATCH"
+            patch -p1 < "$KSU_PATCH" || true
+          else
+            echo "No KSU patch found in susfs_src/kernel_patches"
+          fi
           cd ..
-
 
       - name: Generate Config & Enable Flags
         env:
