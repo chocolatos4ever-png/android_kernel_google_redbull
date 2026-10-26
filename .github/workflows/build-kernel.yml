@@ -28,6 +28,18 @@ jobs:
 
       - name: Integrate SUSFS
         run: |
+
+      - name: Upload Rejected Files
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Patch-Rejects
+          path: |
+            fs/open.c
+            fs/open.c.rej
+            fs/proc/task_mmu.c
+            fs/proc/task_mmu.c.rej
+
           # Clone SUSFS repository
           git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs_src
           
