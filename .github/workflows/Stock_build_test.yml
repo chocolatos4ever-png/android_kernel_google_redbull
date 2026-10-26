@@ -1,0 +1,78 @@
+name: Build Stock LineageOS 24.0 Kernel (Pixel 5)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for GitHub Releases
+
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libfl-dev curl wget cpio gettext zip
+
+      - name: Download Proton Clang Toolchain
+        run: |
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
+          echo "${{ github.workspace }}/toolchain/bin" >> $GITHUB_PATH
+
+      - name: Generate Config
+        run: |
+          make O=out ARCH=arm64 CC=clang \
+               LLVM=1 LLVM_IAS=1 \
+               vendor/redfin_defconfig
+
+      - name: Compile Redfin Kernel
+        run: |
+          make -j$(nproc --all) O=out \
+                      ARCH=arm64 \
+                      CC=clang \
+                      LLVM=1 \
+                      LLVM_IAS=1 \
+                      CROSS_COMPILE=aarch64-linux-gnu- \
+                      CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+                      Image.lz4 dtbo.img
+
+      - name: Package with AnyKernel3
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+          rm -rf AnyKernel3/.git
+          
+          cp out/arch/arm64/boot/Image.lz4 AnyKernel3/
+          cp out/arch/arm64/boot/dtbo.img AnyKernel3/
+          
+          cd AnyKernel3
+          
+          sed -i 's/kernel.string=.*/kernel.string=LineageOS 24.0 Stock Kernel/g' anykernel.sh
+          sed -i 's/device.name1=.*/device.name1=redfin/g' anykernel.sh
+          sed -i 's/device.name2=.*/device.name2=bramble/g' anykernel.sh
+          sed -i 's/device.name3=.*/device.name3=Pixel 5/g' anykernel.sh
+          sed -i 's/block=.*/block=\/dev\/block\/bootdevice\/by-name\/boot;/g' anykernel.sh
+          sed -i 's/is_slot_device=.*/is_slot_device=1;/g' anykernel.sh
+          sed -i '/write_boot;/i flash_dtbo;' anykernel.sh
+          
+          zip -r9 ../Pixel5-Stock-Kernel.zip *
+          cd ..
+
+      - name: Generate Release Tag
+        id: time
+        run: echo "date=$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "Stock-Kernel-${{ env.date }}"
+          name: "Pixel 5 (Redfin) Stock LineageOS Kernel - ${{ env.date }}"
+          files: Pixel5-Stock-Kernel.zip
+          body: |
+            Clean baseline stock kernel build for Google Pixel 5 (Redfin) on LineageOS 24.0.
+            No KernelSU or SUSFS included.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
