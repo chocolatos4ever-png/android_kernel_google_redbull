@@ -7,7 +7,7 @@ jobs:
   build-kernel:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  
+      contents: write  # Required for GitHub Releases
 
     steps:
       - name: Checkout Kernel Source
@@ -21,6 +21,7 @@ jobs:
       - name: Download Proton Clang Toolchain
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
+          echo "${{ github.workspace }}/toolchain/bin" >> $GITHUB_PATH
 
       - name: Integrate KernelSU-Next
         run: |
@@ -50,14 +51,10 @@ jobs:
           if [ -n "$KSU_PATCH" ]; then
             echo "Applying patch: $KSU_PATCH"
             patch -p1 < "$KSU_PATCH" || true
-          else
-            echo "No KSU patch found in susfs_src/kernel_patches"
           fi
           cd ..
 
       - name: Generate Config & Enable Flags
-        env:
-          ARCH: arm64
         run: |
           make O=out ARCH=arm64 CC=clang \
                LLVM=1 LLVM_IAS=1 \
@@ -76,8 +73,6 @@ jobs:
                olddefconfig
 
       - name: Compile Redfin Kernel
-        env:
-          PATH: ${{ github.workspace }}/toolchain/bin:${{ env.PATH }}
         run: |
           make -j$(nproc --all) O=out \
                       ARCH=arm64 \
@@ -121,6 +116,12 @@ jobs:
           files: Pixel5-KernelSU-Next-SUSFS.zip
           body: |
             Automated kernel build for Google Pixel 5 (Redfin).
+            
+            **Includes:**
+            * LineageOS 24.0 base (Linux 4.19)
+            * KernelSU-Next
+            * SUSFS for KernelSU
+            
+            Flashable via AnyKernel3 in custom recovery or Kernel Flasher apps.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
