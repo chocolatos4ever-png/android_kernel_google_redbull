@@ -27,9 +27,21 @@ jobs:
 
       - name: Generate Config
         run: |
+          # Auto-detect available redbull/redfin defconfig
+          DEFCONFIG=""
+          if [ -f "arch/arm64/configs/vendor/redbull_defconfig" ]; then
+            DEFCONFIG="vendor/redbull_defconfig"
+          elif [ -f "arch/arm64/configs/redbull_defconfig" ]; then
+            DEFCONFIG="redbull_defconfig"
+          else
+            DEFCONFIG=$(find arch/arm64/configs -name "*redbull*" -o -name "*redfin*" | head -n 1 | sed 's|arch/arm64/configs/||')
+          fi
+
+          echo "Selected defconfig: $DEFCONFIG"
+
           make O=out ARCH=arm64 CC=clang \
                LLVM=1 LLVM_IAS=1 \
-               vendor/redfin_defconfig
+               "$DEFCONFIG"
 
       - name: Compile Redfin Kernel
         run: |
