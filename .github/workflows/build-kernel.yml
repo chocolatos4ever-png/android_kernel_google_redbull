@@ -24,22 +24,11 @@ jobs:
 
       - name: Integrate KernelSU-Next
         run: |
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s stable
+          # Pulling from the 'next' branch to fix the 404 error
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
 
       - name: Integrate SUSFS
         run: |
-
-      - name: Upload Rejected Files
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Patch-Rejects
-          path: |
-            fs/open.c
-            fs/open.c.rej
-            fs/proc/task_mmu.c
-            fs/proc/task_mmu.c.rej
-
           # Clone SUSFS repository
           git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs_src
           
@@ -55,6 +44,17 @@ jobs:
           cd KernelSU-Next
           patch -p1 < ../susfs_src/kernel_patches/SusFS_for_KSU.patch
           cd ..
+
+      - name: Upload Rejected Files
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Patch-Rejects
+          path: |
+            fs/open.c
+            fs/open.c.rej
+            fs/proc/task_mmu.c
+            fs/proc/task_mmu.c.rej
 
       - name: Generate Config & Enable Flags
         env:
